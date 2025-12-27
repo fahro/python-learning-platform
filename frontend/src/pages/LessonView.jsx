@@ -1,26 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Play, CheckCircle, Loader2, BookOpen, Code, Lightbulb, HelpCircle, Check, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Play, CheckCircle, Loader2, BookOpen, Code, Lightbulb, HelpCircle, Check, X, Send, Trophy, AlertCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { fetchLesson, fetchNextLesson, executeCode, updateProgress, getUserId } from '../api'
+import { fetchLesson, fetchNextLesson, executeCode, submitExercise, submitQuiz, getExerciseStatus, getQuizStatus } from '../api'
 
-export default function LessonView() {
+export default function LessonView({ user }) {
   const { lessonId } = useParams()
   const navigate = useNavigate()
   const [lesson, setLesson] = useState(null)
   const [nextLessonInfo, setNextLessonInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [code, setCode] = useState('')
+  const [exerciseCodes, setExerciseCodes] = useState({})
   const [output, setOutput] = useState('')
+  const [exerciseResults, setExerciseResults] = useState({})
   const [running, setRunning] = useState(false)
+  const [submittingExercise, setSubmittingExercise] = useState({})
+  const [submittingQuiz, setSubmittingQuiz] = useState(false)
   const [activeTab, setActiveTab] = useState('content')
-  const [completed, setCompleted] = useState(false)
   const [quizAnswers, setQuizAnswers] = useState({})
-  const [quizSubmitted, setQuizSubmitted] = useState(false)
+  const [quizResult, setQuizResult] = useState(null)
+  const [exerciseResult, setExerciseResult] = useState(null)
   const [showSolution, setShowSolution] = useState(false)
-  const userId = getUserId()
+  const [exerciseStatus, setExerciseStatus] = useState(null)
+  const [quizStatus, setQuizStatus] = useState(null)
 
   useEffect(() => {
     async function loadLesson() {
@@ -29,9 +34,23 @@ export default function LessonView() {
         const data = await fetchLesson(lessonId)
         setLesson(data)
         setCode(data.code_example || '')
+        setExerciseCodes({})
+        setExerciseResults({})
         
         const next = await fetchNextLesson(lessonId)
         setNextLessonInfo(next)
+        
+        // Load exercise and quiz status
+        try {
+          const [exStatus, qzStatus] = await Promise.all([
+            getExerciseStatus(lessonId),
+            getQuizStatus(lessonId)
+          ])
+          setExerciseStatus(exStatus)
+          setQuizStatus(qzStatus)
+        } catch (e) {
+          // User might not have access
+        }
       } catch (e) {
         console.error('Error loading lesson:', e)
       } finally {
@@ -40,11 +59,11 @@ export default function LessonView() {
     }
     loadLesson()
     setOutput('')
-    setCompleted(false)
     setActiveTab('content')
     setQuizAnswers({})
-    setQuizSubmitted(false)
+    setQuizResult(null)
     setShowSolution(false)
+    setSubmittingExercise({})
   }, [lessonId])
 
   // Parse quiz from lesson
@@ -60,25 +79,54 @@ export default function LessonView() {
   const quizQuestions = lesson ? parseQuiz() : []
 
   const handleQuizAnswer = (questionIndex, answerIndex) => {
-    if (quizSubmitted) return
+    if (quizResult) return
     setQuizAnswers(prev => ({ ...prev, [questionIndex]: answerIndex }))
   }
 
-  const submitQuiz = () => {
-    setQuizSubmitted(true)
+  const handleSubmitQuiz = async () => {
+    if (Object.keys(quizAnswers).length < quizQuestions.length) return
+    setSubmittingQuiz(true)
+    try {
+      const answers = quizQuestions.map((_, i) => quizAnswers[i])
+      const result = await submitQuiz(parseInt(lessonId), answers)
+      setQuizResult(result)
+      // Refresh quiz status
+      const status = await getQuizStatus(lessonId)
+      setQuizStatus(status)
+    } catch (e) {
+      console.error('Error submitting quiz:', e)
+      alert(e.message)
+    } finally {
+      setSubmittingQuiz(false)
+    }
   }
 
   const resetQuiz = () => {
     setQuizAnswers({})
-    setQuizSubmitted(false)
+    setQuizResult(null)
   }
 
-  const getQuizScore = () => {
-    let correct = 0
-    quizQuestions.forEach((q, i) => {
-      if (quizAnswers[i] === q.correct) correct++
-    })
-    return correct
+  const handleSubmitExercise = async (exerciseIndex) => {
+    const code = exerciseCodes[exerciseIndex] || ''
+    if (!code.trim()) return
+    
+    setSubmittingExercise(prev => ({ ...prev, [exerciseIndex]: true }))
+    try {
+      const result = await submitExercise(parseInt(lessonId), exerciseIndex, code)
+      setExerciseResults(prev => ({ ...prev, [exerciseIndex]: result }))
+      // Refresh exercise status
+      const status = await getExerciseStatus(lessonId)
+      setExerciseStatus(status)
+    } catch (e) {
+      console.error('Error submitting exercise:', e)
+      setExerciseResults(prev => ({ ...prev, [exerciseIndex]: { passed: false, error: e.message } }))
+    } finally {
+      setSubmittingExercise(prev => ({ ...prev, [exerciseIndex]: false }))
+    }
+  }
+
+  const updateExerciseCode = (exerciseIndex, code) => {
+    setExerciseCodes(prev => ({ ...prev, [exerciseIndex]: code }))
   }
 
   // Parse exercises from markdown
@@ -107,7 +155,7 @@ export default function LessonView() {
     setRunning(true)
     setOutput('')
     try {
-      const result = await executeCode(code, parseInt(lessonId), userId)
+      const result = await executeCode(code, parseInt(lessonId), null)
       let outputText = result.output || ''
       if (result.error) {
         outputText += '\n❌ Error: ' + result.error
@@ -118,21 +166,6 @@ export default function LessonView() {
       setOutput('❌ Greška pri izvršavanju koda: ' + e.message)
     } finally {
       setRunning(false)
-    }
-  }
-
-  const markComplete = async () => {
-    try {
-      await updateProgress(userId, parseInt(lessonId), true, code)
-      setCompleted(true)
-    } catch (e) {
-      console.error('Error updating progress:', e)
-    }
-  }
-
-  const loadExercise = () => {
-    if (lesson?.exercise_solution) {
-      setCode(lesson.exercise_solution)
     }
   }
 
@@ -167,10 +200,10 @@ export default function LessonView() {
           Nazad na modul
         </Link>
         
-        {completed && (
+        {(exerciseStatus?.completed || quizStatus?.passed) && (
           <span className="flex items-center text-green-600">
             <CheckCircle size={20} className="mr-2" />
-            Završeno!
+            Napredak zabilježen
           </span>
         )}
       </div>
@@ -278,67 +311,150 @@ export default function LessonView() {
 
       {/* Exercise Tab */}
       {activeTab === 'exercise' && (
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h3 className="text-xl font-semibold mb-6 flex items-center">
+        <div className="space-y-6">
+          {/* Exercise Status Banner */}
+          {exerciseStatus?.completed && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+              <Trophy className="w-6 h-6 text-green-600" />
+              <span className="text-green-700 font-medium">Sve vježbe uspješno završene!</span>
+            </div>
+          )}
+
+          <h3 className="text-xl font-semibold flex items-center">
             <Lightbulb className="mr-2 text-yellow-500" />
-            Vježbe
+            Vježbe ({exercises.length})
           </h3>
-          
+
           {exercises.length > 0 ? (
-            <>
-              <div className="grid gap-4 mb-6">
-                {exercises.map((ex, i) => (
-                  <div key={i} className="border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition-all">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg flex items-center justify-center font-bold text-lg">
-                        {ex.number}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-800 mb-2">{ex.title}</h4>
-                        <p className="text-gray-600 text-sm leading-relaxed">{ex.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="border-t pt-6">
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => setActiveTab('code')}
-                    className="btn-primary"
-                  >
-                    <Code size={18} className="mr-2 inline" />
-                    Otvori Editor
-                  </button>
-                  {lesson.exercise_solution && (
-                    <button
-                      onClick={() => setShowSolution(!showSolution)}
-                      className="btn-secondary"
-                    >
-                      {showSolution ? 'Sakrij Rješenje' : 'Prikaži Rješenje'}
-                    </button>
-                  )}
-                </div>
+            <div className="space-y-8">
+              {exercises.map((ex, i) => {
+                const exCode = exerciseCodes[i] || ''
+                const exResult = exerciseResults[i]
+                const isSubmitting = submittingExercise[i]
                 
-                {showSolution && lesson.exercise_solution && (
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-gray-700 mb-3">Rješenja:</h4>
-                    <div className="bg-gray-900 rounded-xl overflow-hidden">
-                      <SyntaxHighlighter
-                        style={oneDark}
-                        language="python"
-                        customStyle={{ margin: 0, padding: '1rem', fontSize: '0.875rem' }}
-                      >
-                        {lesson.exercise_solution}
-                      </SyntaxHighlighter>
+                return (
+                  <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+                    {/* Exercise Header */}
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-lg flex items-center gap-2">
+                          <span className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                            {ex.number}
+                          </span>
+                          {ex.title}
+                        </h4>
+                        {exResult?.passed && (
+                          <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                            <CheckCircle size={14} /> Riješeno
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Exercise Description */}
+                    <div className="p-4 bg-blue-50 border-b border-blue-100">
+                      <p className="text-gray-700">{ex.description}</p>
+                    </div>
+                    
+                    {/* Editor and Result */}
+                    <div className="grid lg:grid-cols-2 gap-0">
+                      {/* Code Editor */}
+                      <div className="bg-gray-900">
+                        <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+                          <span className="text-gray-400 text-sm">Tvoje Rješenje</span>
+                          <button
+                            onClick={() => handleSubmitExercise(i)}
+                            disabled={isSubmitting || !exCode.trim()}
+                            className="flex items-center bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 transition-colors"
+                          >
+                            {isSubmitting ? (
+                              <Loader2 size={14} className="mr-1.5 animate-spin" />
+                            ) : (
+                              <Send size={14} className="mr-1.5" />
+                            )}
+                            {isSubmitting ? 'Testiram...' : 'Predaj'}
+                          </button>
+                        </div>
+                        <textarea
+                          value={exCode}
+                          onChange={(e) => updateExerciseCode(i, e.target.value)}
+                          className="w-full h-48 bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none focus:outline-none"
+                          placeholder={`# Vježba ${ex.number}: Napiši rješenje ovdje...`}
+                          spellCheck={false}
+                        />
+                      </div>
+                      
+                      {/* Result Panel */}
+                      <div className="bg-gray-50 border-l border-gray-200">
+                        <div className="px-4 py-2 bg-gray-100 border-b flex items-center justify-between">
+                          <span className="text-gray-600 text-sm font-medium">Rezultat</span>
+                          {exResult && (
+                            <span className={`text-xs font-medium px-2 py-1 rounded ${
+                              exResult.passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {exResult.passed ? '✓ Tačno!' : '✗ Netačno'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="p-4 h-48 overflow-auto">
+                          {exResult ? (
+                            <div className="space-y-3">
+                              {exResult.passed ? (
+                                <div className="flex items-center gap-2 text-green-600">
+                                  <CheckCircle size={18} />
+                                  <span className="font-medium text-sm">Bravo! Rješenje je tačno!</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 text-red-600">
+                                  <AlertCircle size={18} />
+                                  <span className="font-medium text-sm">Pokušaj ponovo!</span>
+                                </div>
+                              )}
+                              {exResult.output && (
+                                <div>
+                                  <span className="text-xs text-gray-500">Output:</span>
+                                  <pre className="mt-1 text-xs font-mono bg-white p-2 rounded border">{exResult.output}</pre>
+                                </div>
+                              )}
+                              {exResult.error && (
+                                <div className="text-red-600 text-xs">
+                                  <span className="font-medium">Greška:</span> {exResult.error}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-gray-400 text-sm">Predaj rješenje da vidiš rezultat...</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </>
+                )
+              })}
+            </div>
           ) : (
-            <p className="text-gray-500">Nema vježbi za ovu lekciju.</p>
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <p className="text-gray-500">Nema vježbi za ovu lekciju.</p>
+            </div>
+          )}
+
+          {/* Show Solution Toggle */}
+          {lesson.exercise_solution && (
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <button
+                onClick={() => setShowSolution(!showSolution)}
+                className="btn-secondary"
+              >
+                {showSolution ? 'Sakrij Rješenja' : 'Prikaži Rješenja'}
+              </button>
+              {showSolution && (
+                <div className="mt-4">
+                  <SyntaxHighlighter style={oneDark} language="python" customStyle={{ borderRadius: '0.75rem' }}>
+                    {lesson.exercise_solution}
+                  </SyntaxHighlighter>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -346,33 +462,49 @@ export default function LessonView() {
       {/* Quiz Tab */}
       {activeTab === 'quiz' && (
         <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h3 className="text-xl font-semibold mb-6 flex items-center">
-            <HelpCircle className="mr-2 text-purple-500" />
-            Kviz - Testiraj svoje znanje
-          </h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold flex items-center">
+              <HelpCircle className="mr-2 text-purple-500" />
+              Kviz - Testiraj svoje znanje
+            </h3>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">Potrebno za prolaz: <strong>70%</strong></span>
+              {quizStatus?.passed && (
+                <span className="bg-green-100 text-green-700 text-sm px-3 py-1 rounded-full flex items-center gap-1">
+                  <Trophy size={14} /> Položeno ({quizStatus.best_score?.toFixed(0)}%)
+                </span>
+              )}
+            </div>
+          </div>
           
           {quizQuestions.length > 0 ? (
             <>
-              {quizSubmitted && (
+              {/* Quiz Result Banner */}
+              {quizResult && (
                 <div className={`mb-6 p-4 rounded-xl ${
-                  getQuizScore() === quizQuestions.length 
+                  quizResult.passed 
                     ? 'bg-green-50 border border-green-200' 
-                    : getQuizScore() >= quizQuestions.length / 2 
-                      ? 'bg-yellow-50 border border-yellow-200'
-                      : 'bg-red-50 border border-red-200'
+                    : 'bg-red-50 border border-red-200'
                 }`}>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-semibold text-lg">
-                        Rezultat: {getQuizScore()}/{quizQuestions.length}
-                      </span>
-                      <span className="ml-3 text-gray-600">
-                        ({Math.round(getQuizScore() / quizQuestions.length * 100)}%)
-                      </span>
+                    <div className="flex items-center gap-3">
+                      {quizResult.passed ? (
+                        <Trophy className="w-8 h-8 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-8 h-8 text-red-600" />
+                      )}
+                      <div>
+                        <span className="font-semibold text-lg">
+                          Rezultat: {quizResult.correct_count}/{quizResult.total_count}
+                        </span>
+                        <span className={`ml-3 font-bold ${quizResult.passed ? 'text-green-600' : 'text-red-600'}`}>
+                          ({quizResult.score.toFixed(0)}%)
+                        </span>
+                      </div>
                     </div>
-                    {getQuizScore() === quizQuestions.length && (
-                      <span className="text-green-600 font-medium">Odlično! 🎉</span>
-                    )}
+                    <span className={`font-medium ${quizResult.passed ? 'text-green-600' : 'text-red-600'}`}>
+                      {quizResult.passed ? 'Čestitamo! Položili ste kviz! 🎉' : 'Niste položili. Potrebno je 70%.'}
+                    </span>
                   </div>
                 </div>
               )}
@@ -391,7 +523,7 @@ export default function LessonView() {
                       {q.options.map((option, oIndex) => {
                         const isSelected = quizAnswers[qIndex] === oIndex
                         const isCorrect = q.correct === oIndex
-                        const showResult = quizSubmitted
+                        const showResult = quizResult !== null
                         
                         let bgClass = 'bg-gray-50 hover:bg-gray-100 border-gray-200'
                         if (showResult) {
@@ -408,8 +540,8 @@ export default function LessonView() {
                           <button
                             key={oIndex}
                             onClick={() => handleQuizAnswer(qIndex, oIndex)}
-                            disabled={quizSubmitted}
-                            className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${bgClass} ${!quizSubmitted && 'cursor-pointer'}`}
+                            disabled={quizResult !== null}
+                            className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${bgClass} ${!quizResult && 'cursor-pointer'}`}
                           >
                             <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${
                               isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300'
@@ -428,14 +560,18 @@ export default function LessonView() {
               </div>
               
               <div className="mt-6 flex gap-3">
-                {!quizSubmitted ? (
+                {!quizResult ? (
                   <button
-                    onClick={submitQuiz}
-                    disabled={Object.keys(quizAnswers).length < quizQuestions.length}
+                    onClick={handleSubmitQuiz}
+                    disabled={submittingQuiz || Object.keys(quizAnswers).length < quizQuestions.length}
                     className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <CheckCircle size={18} className="mr-2 inline" />
-                    Provjeri Odgovore
+                    {submittingQuiz ? (
+                      <Loader2 size={18} className="mr-2 inline animate-spin" />
+                    ) : (
+                      <Send size={18} className="mr-2 inline" />
+                    )}
+                    {submittingQuiz ? 'Provjeravam...' : 'Predaj Kviz'}
                   </button>
                 ) : (
                   <button onClick={resetQuiz} className="btn-secondary">
@@ -460,12 +596,17 @@ export default function LessonView() {
           Sve lekcije
         </Link>
 
-        <div className="flex gap-3">
-          {!completed && (
-            <button onClick={markComplete} className="btn-success">
-              <CheckCircle size={18} className="mr-2 inline" />
-              Označi kao završeno
-            </button>
+        <div className="flex gap-3 items-center">
+          {/* Progress indicators */}
+          {exerciseStatus?.completed && (
+            <span className="text-green-600 text-sm flex items-center gap-1">
+              <CheckCircle size={16} /> Vježba
+            </span>
+          )}
+          {quizStatus?.passed && (
+            <span className="text-green-600 text-sm flex items-center gap-1">
+              <CheckCircle size={16} /> Kviz
+            </span>
           )}
           
           {nextLessonInfo?.next_lesson_id && (

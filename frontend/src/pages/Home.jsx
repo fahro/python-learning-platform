@@ -35,7 +35,7 @@ const curriculum = [
       { num: 9, title: 'Napredni OOP', hours: 7, icon: Code },
       { num: 10, title: 'Generatori i Iteratori', hours: 7, icon: Zap },
       { num: 11, title: 'Konkurentnost', hours: 7, icon: Globe },
-      { num: 12, title: 'Testiranje i Best Practices', hours: 7, icon: CheckCircle },
+      { num: 12, title: 'Python u Statistici', hours: 7, icon: CheckCircle },
     ]
   }
 ]

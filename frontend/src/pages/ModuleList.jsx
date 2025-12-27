@@ -1,30 +1,32 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, BookOpen, ChevronRight, Loader2 } from 'lucide-react'
-import { fetchModules, fetchModuleProgress, getUserId } from '../api'
+import { Clock, BookOpen, ChevronRight, Loader2, Lock } from 'lucide-react'
+import { fetchModules, fetchUserModuleAccess } from '../api'
 
-export default function ModuleList() {
+export default function ModuleList({ user }) {
   const [modules, setModules] = useState([])
   const [loading, setLoading] = useState(true)
-  const [progress, setProgress] = useState({})
-  const userId = getUserId()
+  const [moduleAccess, setModuleAccess] = useState({})
 
   useEffect(() => {
     async function loadData() {
       try {
-        const mods = await fetchModules()
+        const [mods, access] = await Promise.all([
+          fetchModules(),
+          fetchUserModuleAccess()
+        ])
         setModules(mods)
         
-        const progressData = {}
-        for (const mod of mods) {
-          try {
-            const p = await fetchModuleProgress(userId, mod.id)
-            progressData[mod.id] = p
-          } catch (e) {
-            progressData[mod.id] = { progress_percentage: 0 }
-          }
+        // Convert access array to object for easy lookup
+        const accessMap = {}
+        if (access.is_admin) {
+          mods.forEach(m => accessMap[m.id] = true)
+        } else {
+          access.modules.forEach(a => {
+            accessMap[a.module_id] = a.unlocked
+          })
         }
-        setProgress(progressData)
+        setModuleAccess(accessMap)
       } catch (e) {
         console.error('Error loading modules:', e)
       } finally {
@@ -32,7 +34,7 @@ export default function ModuleList() {
       }
     }
     loadData()
-  }, [userId])
+  }, [user])
 
   if (loading) {
     return (
@@ -56,8 +58,36 @@ export default function ModuleList() {
   }
 
   const ModuleCard = ({ module }) => {
-    const prog = progress[module.id] || { progress_percentage: 0 }
     const colors = getPartColors(module.part)
+    const isUnlocked = moduleAccess[module.id] === true
+    
+    if (!isUnlocked) {
+      return (
+        <div className="module-card p-6 opacity-60 cursor-not-allowed relative">
+          <div className="absolute inset-0 bg-slate-900/50 rounded-xl flex items-center justify-center z-10">
+            <div className="text-center">
+              <Lock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <span className="text-slate-300 text-sm">Zaključano</span>
+            </div>
+          </div>
+          <div className="flex items-start justify-between mb-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold bg-slate-700 text-slate-400`}>
+              {module.number}
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold mb-2 text-slate-500">
+            {module.title}
+          </h3>
+          <div className="flex items-center text-sm text-slate-600 mb-4">
+            <Clock size={16} className="mr-1" />
+            <span>{module.duration_hours} časa</span>
+            <span className="mx-2">•</span>
+            <BookOpen size={16} className="mr-1" />
+            <span>{module.lesson_count} lekcija</span>
+          </div>
+        </div>
+      )
+    }
     
     return (
       <Link
@@ -83,18 +113,8 @@ export default function ModuleList() {
           <span>{module.lesson_count} lekcija</span>
         </div>
         
-        {/* Progress bar */}
         <div className="mt-auto">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-gray-500">Napredak</span>
-            <span className="font-medium">{prog.progress_percentage}%</span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all ${colors.bar}`}
-              style={{ width: `${prog.progress_percentage}%` }}
-            />
-          </div>
+          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Otkljucan</span>
         </div>
       </Link>
     )

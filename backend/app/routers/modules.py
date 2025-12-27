@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Cookie
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.database import get_db
 from app import models, schemas
+from app.routers.auth import get_current_user
 
 router = APIRouter()
 
@@ -22,6 +23,36 @@ def get_all_modules(db: Session = Depends(get_db)):
             lesson_count=lesson_count
         ))
     return result
+
+
+@router.get("/user-access")
+def get_user_module_access(
+    session_token: Optional[str] = Cookie(None),
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(session_token, db)
+    if not user:
+        return {"modules": [], "authenticated": False}
+    
+    # Admin has access to all
+    if user.is_admin:
+        modules = db.query(models.Module).all()
+        return {
+            "modules": [{"module_id": m.id, "unlocked": True} for m in modules],
+            "authenticated": True,
+            "is_admin": True
+        }
+    
+    # Get user's module access
+    access_list = db.query(models.UserModuleAccess).filter(
+        models.UserModuleAccess.user_id == user.id
+    ).all()
+    
+    return {
+        "modules": [{"module_id": a.module_id, "unlocked": a.unlocked} for a in access_list],
+        "authenticated": True,
+        "is_admin": False
+    }
 
 
 @router.get("/part/{part_number}", response_model=List[schemas.ModuleSummary])

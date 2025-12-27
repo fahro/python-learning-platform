@@ -87,3 +87,139 @@ export function getUserId() {
   }
   return userId
 }
+
+// Auth API
+export async function register(username, password) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ username, password })
+  })
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.detail || 'Registracija nije uspjela')
+  }
+  return res.json()
+}
+
+export async function login(username, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ username, password })
+  })
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.detail || 'Prijava nije uspjela')
+  }
+  return res.json()
+}
+
+export async function logout() {
+  const res = await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include'
+  })
+  return res.json()
+}
+
+export async function checkAuth() {
+  const res = await fetch(`${API_BASE}/auth/check`, {
+    credentials: 'include'
+  })
+  return res.json()
+}
+
+// Module Access
+export async function fetchUserModuleAccess() {
+  const res = await fetch(`${API_BASE}/modules/user-access`, {
+    credentials: 'include'
+  })
+  return res.json()
+}
+
+// Exercise API
+export async function submitExercise(lessonId, exerciseIndex, code) {
+  const res = await fetch(`${API_BASE}/exercises/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ lesson_id: lessonId, exercise_index: exerciseIndex, code })
+  })
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.detail || 'Greška pri slanju vježbe')
+  }
+  return res.json()
+}
+
+export async function getExerciseStatus(lessonId) {
+  const res = await fetch(`${API_BASE}/exercises/status/${lessonId}`, {
+    credentials: 'include'
+  })
+  return res.json()
+}
+
+// Quiz API
+export async function submitQuiz(lessonId, answers) {
+  const res = await fetch(`${API_BASE}/quiz/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ lesson_id: lessonId, answers })
+  })
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.detail || 'Greška pri slanju kviza')
+  }
+  return res.json()
+}
+
+export async function getQuizStatus(lessonId) {
+  const res = await fetch(`${API_BASE}/quiz/status/${lessonId}`, {
+    credentials: 'include'
+  })
+  return res.json()
+}
+
+// Admin API
+export async function fetchAllUsers() {
+  const res = await fetch(`${API_BASE}/admin/users`, {
+    credentials: 'include'
+  })
+  if (!res.ok) throw new Error('Nemate pristup')
+  return res.json()
+}
+
+export async function fetchUserStatsAdmin(userId) {
+  const res = await fetch(`${API_BASE}/admin/users/${userId}/stats`, {
+    credentials: 'include'
+  })
+  return res.json()
+}
+
+export async function fetchUserProgressAdmin(userId) {
+  const res = await fetch(`${API_BASE}/admin/users/${userId}/progress`, {
+    credentials: 'include'
+  })
+  return res.json()
+}
+
+export async function unlockModule(userId, moduleId, unlocked) {
+  const res = await fetch(`${API_BASE}/admin/unlock-module`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ user_id: userId, module_id: moduleId, unlocked })
+  })
+  return res.json()
+}
+
+export async function fetchAllModulesAdmin() {
+  const res = await fetch(`${API_BASE}/admin/modules`, {
+    credentials: 'include'
+  })
+  return res.json()
+}

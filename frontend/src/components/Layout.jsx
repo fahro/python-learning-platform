@@ -1,8 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
-import { BookOpen, Home, BarChart3, Menu, X } from 'lucide-react'
+import { BookOpen, Home, BarChart3, Menu, X, LogOut, Shield, User } from 'lucide-react'
 import { useState } from 'react'
 
-export default function Layout({ children }) {
+export default function Layout({ children, user, onLogout }) {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -10,6 +10,7 @@ export default function Layout({ children }) {
     { path: '/', icon: Home, label: 'Početna' },
     { path: '/modules', icon: BookOpen, label: 'Moduli' },
     { path: '/progress', icon: BarChart3, label: 'Napredak' },
+    ...(user?.is_admin ? [{ path: '/admin', icon: Shield, label: 'Admin' }] : []),
   ]
 
   const isActive = (path) => location.pathname === path
@@ -30,7 +31,7 @@ export default function Layout({ children }) {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex space-x-1">
+            <nav className="hidden md:flex items-center space-x-1">
               {navItems.map(({ path, icon: Icon, label }) => (
                 <Link
                   key={path}
@@ -45,6 +46,24 @@ export default function Layout({ children }) {
                   <span>{label}</span>
                 </Link>
               ))}
+              
+              {/* User Info */}
+              <div className="flex items-center ml-4 pl-4 border-l border-white/20">
+                <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-lg">
+                  <User size={16} />
+                  <span className="text-sm">{user?.username}</span>
+                  {user?.is_admin && (
+                    <span className="text-xs bg-yellow-500 text-black px-1.5 py-0.5 rounded">Admin</span>
+                  )}
+                </div>
+                <button
+                  onClick={onLogout}
+                  className="ml-2 p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  title="Odjava"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
             </nav>
 
             {/* Mobile menu button */}

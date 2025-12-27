@@ -1,5 +1,6 @@
 from app.database import SessionLocal, engine, Base
 from app.models import Module, Lesson
+from app.module12_data import MODULE_12_LESSONS
 
 Base.metadata.create_all(bind=engine)
 
@@ -15,7 +16,7 @@ MODULES = [
     {"number": 9, "title": "Napredni OOP", "description": "Dekorateri, property, magijske metode.", "duration_hours": 7, "part": 3},
     {"number": 10, "title": "Generatori i Iteratori", "description": "Yield, itertools, funkcionalno programiranje.", "duration_hours": 7, "part": 3},
     {"number": 11, "title": "Konkurentnost", "description": "Threading, multiprocessing, asyncio.", "duration_hours": 7, "part": 3},
-    {"number": 12, "title": "Testiranje i Best Practices", "description": "Unit testing, pytest, type hints.", "duration_hours": 7, "part": 3},
+    {"number": 12, "title": "Python u Statistici", "description": "NumPy, Pandas, deskriptivna statistika, korelacija, vizualizacija - 18 lekcija.", "duration_hours": 18, "part": 3},
 ]
 
 LESSONS = {
@@ -133,8 +134,8 @@ print("\\n" + "=" * 50)
 print("✅ Program završen!")""",
          "exercise": """## 🎯 Vježbe
 
-### Vježba 1: Hello World
-Ispišite "Hello, World!" i vaše ime.
+### Vježba 1: Pozdrav
+Ispišite "Zdravo" i vaše korisničko ime. Npr. ako ste "admin", ispišite: Zdravo admin!
 
 ### Vježba 2: ASCII Art
 Nacrtajte kuću koristeći print():
@@ -148,8 +149,7 @@ Nacrtajte kuću koristeći print():
 ### Vježba 3: Vizit Karta
 Napravite formatiranu vizit kartu sa okvirom.""",
          "exercise_solution": """# Vježba 1
-print("Hello, World!")
-print("Ana Horvat")
+print("Zdravo admin!")
 
 # Vježba 2
 print("   /\\\\")
@@ -168,7 +168,7 @@ print("╚═══════════════════════�
          "quiz": """[
 {"question": "Kako pokrenuti Python fajl?", "options": ["run program.py", "python program.py", "execute program.py", "start program.py"], "correct": 1},
 {"question": "Šta radi print()?", "options": ["Čita input", "Ispisuje na ekran", "Sprema u fajl", "Briše tekst"], "correct": 1},
-{"question": "Koji simbol označava komentar?", "options": ["//", "#", "/*", "--"], "correct": 1},
+{"question": "Koji simbol označava komentar?", "options": ["#", "$", "/*", "--"], "correct": 1},
 {"question": "Koja komanda provjerava verziju?", "options": ["python -v", "python --version", "python ver", "version python"], "correct": 1},
 {"question": "Koja ekstenzija za Python fajlove?", "options": [".py", ".pyt", ".python", ".pt"], "correct": 0}
 ]"""},
@@ -2598,12 +2598,7 @@ statistike()""",
         {"title": "Asyncio", "order": 3, "duration_hours": 2, "content": "# ⚡ Asyncio\n\n```python\nasync def main():\n    await asyncio.sleep(1)\n\nasyncio.run(main())\n```", "code_example": "import asyncio\n\nasync def greet(name, delay):\n    await asyncio.sleep(delay)\n    return f'Hello, {name}'\n\n# async def main():\n#     result = await greet('World', 1)\n#     print(result)\n\nprint('Asyncio primer (ne radi u web env)')", "exercise": "Async funkcija.", "exercise_solution": "async def fetch():\n    await asyncio.sleep(1)\n    return 'data'", "quiz": """[{"question": "await čeka?", "options": ["Async operaciju", "Thread", "Process", "Sync funkciju"], "correct": 0}, {"question": "async def kreira?", "options": ["Coroutine", "Thread", "Process", "Generator"], "correct": 0}, {"question": "asyncio.run() radi?", "options": ["Pokreće event loop", "Kreira thread", "Kreira process", "Return"], "correct": 0}, {"question": "Asyncio za?", "options": ["I/O bound sa mnogo konekcija", "CPU bound", "Threading", "Multiprocessing"], "correct": 0}, {"question": "Event loop je?", "options": ["Upravljač coroutina", "Thread pool", "Process pool", "Memory"], "correct": 0}]"""},
         {"title": "Async Patterns", "order": 4, "duration_hours": 1, "content": "# 🎯 Patterns\n\ngather, create_task, wait", "code_example": "# async def main():\n#     tasks = [greet(f'User{i}', 0.1) for i in range(3)]\n#     results = await asyncio.gather(*tasks)\n#     print(results)\n\nprint('Async gather primer')", "exercise": "gather primjer.", "exercise_solution": "# results = await asyncio.gather(task1(), task2())", "quiz": """[{"question": "gather() radi?", "options": ["Paralelno izvršava", "Sekvencijalno", "Random", "Blokira"], "correct": 0}, {"question": "create_task() vraća?", "options": ["Task objekt", "Coroutine", "Result", "None"], "correct": 0}, {"question": "asyncio.wait() vs gather?", "options": ["Više kontrole", "Isto", "Manje kontrole", "Deprecated"], "correct": 0}, {"question": "Task.cancel() radi?", "options": ["Otkazuje task", "Pauzira", "Restartuje", "Join"], "correct": 0}, {"question": "async with za?", "options": ["Async context manager", "Sync CM", "Loop", "Error"], "correct": 0}]"""}
     ],
-    12: [
-        {"title": "Unit Testing", "order": 1, "duration_hours": 2, "content": "# 🧪 unittest\n\n```python\nimport unittest\n\nclass TestMath(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(1+1, 2)\n```", "code_example": "import unittest\n\ndef add(a, b):\n    return a + b\n\nclass TestAdd(unittest.TestCase):\n    def test_positive(self):\n        self.assertEqual(add(2, 3), 5)\n    \n    def test_negative(self):\n        self.assertEqual(add(-1, -1), -2)\n\n# unittest.main() u pravom fajlu\nprint('Tests defined')", "exercise": "Test multiply.", "exercise_solution": "def test_multiply(self):\n    self.assertEqual(3 * 4, 12)", "quiz": """[{"question": "assertEqual provjera?", "options": ["Jednakost", "Tip", "None", "True"], "correct": 0}, {"question": "setUp() se poziva?", "options": ["Prije svakog testa", "Jednom", "Na kraju", "Nikad"], "correct": 0}, {"question": "tearDown() služi za?", "options": ["Cleanup", "Setup", "Test", "Assert"], "correct": 0}, {"question": "assertTrue(x) provjerava?", "options": ["x je True", "x == True", "x is True", "type(x)"], "correct": 0}, {"question": "assertRaises koristi se za?", "options": ["Očekivani exception", "True/False", "Equality", "None"], "correct": 0}]"""},
-        {"title": "pytest", "order": 2, "duration_hours": 2, "content": "# 🎯 pytest\n\n```python\ndef test_add():\n    assert add(1, 2) == 3\n```", "code_example": "def test_add():\n    assert 1 + 1 == 2\n\ndef test_string():\n    assert 'hello'.upper() == 'HELLO'\n\ndef test_list():\n    assert [1, 2, 3][0] == 1\n\nprint('pytest tests defined')", "exercise": "pytest test.", "exercise_solution": "def test_divide():\n    assert 10 / 2 == 5", "quiz": """[{"question": "assert bez msg?", "options": ["Radi normalno", "Error", "Warning", "Ignoriše se"], "correct": 0}, {"question": "@pytest.fixture za?", "options": ["Setup/teardown", "Skip test", "Mark test", "Parametrize"], "correct": 0}, {"question": "pytest vs unittest?", "options": ["Manje boilerplate", "Više boilerplate", "Isto", "Sporije"], "correct": 0}, {"question": "-v flag?", "options": ["Verbose output", "Version", "Validate", "Virtual"], "correct": 0}, {"question": "conftest.py za?", "options": ["Shared fixtures", "Config", "Tests", "Main"], "correct": 0}]"""},
-        {"title": "Type Hints", "order": 3, "duration_hours": 2, "content": "# 📝 Type Hints\n\n```python\ndef greet(name: str) -> str:\n    return f'Hello, {name}'\n```", "code_example": "from typing import List, Dict, Optional\n\ndef process(items: List[int]) -> int:\n    return sum(items)\n\ndef find(d: Dict[str, int], key: str) -> Optional[int]:\n    return d.get(key)\n\nprint(process([1, 2, 3]))\nprint(find({'a': 1}, 'a'))", "exercise": "Dodajte type hints.", "exercise_solution": "def greet(name: str, times: int = 1) -> str:\n    return f'Hello {name}' * times", "quiz": """[{"question": "Optional[int] znači?", "options": ["int ili None", "Samo int", "Samo None", "Lista int"], "correct": 0}, {"question": "List[str] znači?", "options": ["Lista stringova", "String", "Tuple", "Dict"], "correct": 0}, {"question": "-> str označava?", "options": ["Return type", "Parameter", "Variable", "Import"], "correct": 0}, {"question": "Type hints su?", "options": ["Opcionalni", "Obavezni", "Runtime check", "Compile check"], "correct": 0}, {"question": "mypy radi?", "options": ["Static type checking", "Runtime check", "Testing", "Linting"], "correct": 0}]"""},
-        {"title": "Best Practices", "order": 4, "duration_hours": 1, "content": "# ✨ Best Practices\n\nPEP 8, docstrings, clean code", "code_example": "def calculate_average(numbers: list) -> float:\n    '''Calculate the average of numbers.\n    \n    Args:\n        numbers: List of numbers.\n    \n    Returns:\n        Average value.\n    '''\n    if not numbers:\n        return 0.0\n    return sum(numbers) / len(numbers)\n\nprint(calculate_average([1, 2, 3, 4, 5]))", "exercise": "Dodajte docstring.", "exercise_solution": "def add(a, b):\n    '''Add two numbers and return result.'''\n    return a + b", "quiz": """[{"question": "PEP 8 je?", "options": ["Style guide", "Modul", "Funkcija", "Paket"], "correct": 0}, {"question": "Docstring format?", "options": ["Triple quotes", "Single quotes", "Comments", "Annotations"], "correct": 0}, {"question": "snake_case za?", "options": ["Funkcije i varijable", "Klase", "Konstante", "Module"], "correct": 0}, {"question": "PascalCase za?", "options": ["Klase", "Funkcije", "Konstante", "Varijable"], "correct": 0}, {"question": "SCREAMING_CASE za?", "options": ["Konstante", "Klase", "Funkcije", "Module"], "correct": 0}]"""}
-    ]
+    12: MODULE_12_LESSONS
 }
 
 def seed_database():

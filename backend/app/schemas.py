@@ -10,6 +10,7 @@ class LessonBase(BaseModel):
     code_example: Optional[str] = None
     exercise: Optional[str] = None
     exercise_solution: Optional[str] = None
+    quiz: Optional[str] = None
     order: int
     duration_hours: int = 1
 
@@ -97,3 +98,87 @@ class CodeExecuteResponse(BaseModel):
     error: Optional[str] = None
     execution_time: float
     is_correct: Optional[bool] = None
+
+
+# Auth Schemas
+class UserRegister(BaseModel):
+    username: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    is_admin: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class UserWithProgress(UserResponse):
+    completed_lessons: int = 0
+    completed_exercises: int = 0
+    passed_quizzes: int = 0
+    unlocked_modules: int = 0
+
+
+# Module Access Schemas
+class ModuleAccessUpdate(BaseModel):
+    user_id: int
+    module_id: int
+    unlocked: bool
+
+
+class ModuleAccessResponse(BaseModel):
+    id: int
+    user_id: int
+    module_id: int
+    unlocked: bool
+    unlocked_at: Optional[datetime]
+    
+    class Config:
+        from_attributes = True
+
+
+# Exercise Schemas
+class ExerciseSubmit(BaseModel):
+    lesson_id: int
+    exercise_index: int
+    code: str
+
+
+class ExerciseResult(BaseModel):
+    passed: bool
+    output: str
+    error: Optional[str] = None
+    expected_output: Optional[str] = None
+
+
+# Quiz Schemas
+class QuizSubmit(BaseModel):
+    lesson_id: int
+    answers: List[int]  # List of selected option indices
+
+
+class QuizResult(BaseModel):
+    score: float
+    passed: bool
+    correct_count: int
+    total_count: int
+    details: List[dict]  # Question-by-question breakdown
+
+
+# Admin Schemas
+class AdminUserStats(BaseModel):
+    user: UserResponse
+    modules_unlocked: List[int]
+    lessons_completed: int
+    exercises_passed: int
+    quizzes_passed: int
+    last_activity: Optional[datetime]
